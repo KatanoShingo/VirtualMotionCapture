@@ -225,6 +225,8 @@
     <system:String x:Key="SettingWindow_SelectedItemError">Please select tracker to assign camera</system:String>
     <system:String x:Key="SettingWindow_ExportExternalCameraConfig">Export externalcamera.cfg</system:String>
     <system:String x:Key="SettingWindow_ExportExternalCameraConfig_ToolTip">Export externalcamera.cfg to synthesize model into VR game</system:String>
+    <system:String x:Key="SettingWindow_ExternalMotionSender">External motion sender</system:String>
+    <system:String x:Key="SettingWindow_ExternalMotionSenderEnable">Enable OSC motion sender</system:String>
     
 
     <!-- TrackerConfigWindow -->
@@ -265,6 +267,8 @@
     <system:String x:Key="ShortcutKeyWindow_Name">Name</system:String>
     <system:String x:Key="ShortcutKeyWindow_UseKey">UseKey</system:String>
     <system:String x:Key="ShortcutKeyWindow_TouchPadStickInfo">Touch pad / stick assignment</system:String>
+    <system:String x:Key="ShortcutKeyWindow_TouchPad">Touch pad</system:String>
+    <system:String x:Key="ShortcutKeyWindow_Stick">Stick</system:String>
     <system:String x:Key="ShortcutKeyWindow_LeftController">Left controller</system:String>
     <system:String x:Key="ShortcutKeyWindow_RightController">Right controller</system:String>
     <system:String x:Key="ShortcutKeyWindow_LeftCenterKey">Center key</system:String>
@@ -298,6 +302,7 @@
     <system:String x:Key="ShortcutKeyWindow_Edit_ToolTip">Edit the selected shortcut key.</system:String>
     <system:String x:Key="ShortcutKeyWindow_Remove_ToolTip">Remove the selected shortcut key.</system:String>
     <system:String x:Key="ShortcutKeyWindow_ShortcutKeyList_ToolTip">List of registered shortcut keys.</system:String>
+    <system:String x:Key="ShortcutKeyWindow_UseSkeletal">Use Skeletal for fingers (hand gestures are disabled)</system:String>
 
 
     <!-- HandGestureControlKeyAddWindow -->

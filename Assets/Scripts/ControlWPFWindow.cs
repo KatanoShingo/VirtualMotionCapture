@@ -54,6 +54,9 @@ public class ControlWPFWindow : MonoBehaviour
     public Transform PelvisTrackerRoot;
     public Transform RealTrackerRoot;
 
+    public GameObject ExternalMotionSenderObject;
+    private ExternalSender externalMotionSender;
+
     public MemoryMappedFileServer server;
     private string pipeName = Guid.NewGuid().ToString();
 
@@ -81,6 +84,7 @@ public class ControlWPFWindow : MonoBehaviour
 
     public Action<GameObject> ModelLoadedAction = null;
     public Action<GameObject> AdditionalSettingAction = null;
+    public Action<Camera> CameraChangedAction = null;
 
     public Action<GameObject> EyeTracking_TobiiCalibrationAction = null;
     public Action<PipeCommands.SetEyeTracking_TobiiOffsets> SetEyeTracking_TobiiOffsetsAction = null;
@@ -121,6 +125,10 @@ public class ControlWPFWindow : MonoBehaviour
 
         KeyboardAction.KeyDownEvent += KeyboardAction_KeyDown;
         KeyboardAction.KeyUpEvent += KeyboardAction_KeyUp;
+
+        CameraChangedAction?.Invoke(currentCamera);
+
+        externalMotionSender = ExternalMotionSenderObject.GetComponent<ExternalSender>();
     }
 
     private int SetWindowTitle()
@@ -613,6 +621,31 @@ public class ControlWPFWindow : MonoBehaviour
                     ry = CurrentSettings.FreeCameraTransform.localRotation.eulerAngles.y,
                     rz = CurrentSettings.FreeCameraTransform.localRotation.eulerAngles.z,
                     fov = currentCamera.fieldOfView
+                }, e.RequestId);
+            }
+            else if (e.CommandType == typeof(PipeCommands.EnableExternalMotionSender))
+            {
+                var d = (PipeCommands.EnableExternalMotionSender)e.Data;
+                SetExternalMotionSenderEnable(d.enable);
+            }
+            else if (e.CommandType == typeof(PipeCommands.GetEnableExternalMotionSender))
+            {
+                await server.SendCommandAsync(new PipeCommands.EnableExternalMotionSender
+                {
+                    enable = CurrentSettings.ExternalMotionSenderEnable
+                }, e.RequestId);
+            }
+            else if (e.CommandType == typeof(PipeCommands.ChangeExternalMotionSenderAddress))
+            {
+                var d = (PipeCommands.ChangeExternalMotionSenderAddress)e.Data;
+                ChangeExternalMotionSenderAddress(d.address, d.port);
+            }
+            else if (e.CommandType == typeof(PipeCommands.GetExternalMotionSenderAddress))
+            {
+                await server.SendCommandAsync(new PipeCommands.ChangeExternalMotionSenderAddress
+                {
+                    address = CurrentSettings.ExternalMotionSenderAddress,
+                    port = CurrentSettings.ExternalMotionSenderPort
                 }, e.RequestId);
             }
         }, null);
@@ -1546,6 +1579,8 @@ public class ControlWPFWindow : MonoBehaviour
             camera.GetComponent<CameraMouseControl>().enabled = true;
             currentCamera = camera;
             SetCameraMirrorEnable(CurrentSettings.CameraMirrorEnable);
+
+            CameraChangedAction?.Invoke(currentCamera);
         }
     }
 
@@ -2115,6 +2150,36 @@ public class ControlWPFWindow : MonoBehaviour
 
     #endregion
 
+    #region ExternalMotionSender
+
+    private void SetExternalMotionSenderEnable(bool enable)
+    {
+        CurrentSettings.ExternalMotionSenderEnable = enable;
+        ExternalMotionSenderObject.SetActive(enable);
+        WaitOneFrameAction(() => ModelLoadedAction?.Invoke(CurrentModel));
+        WaitOneFrameAction(() => CameraChangedAction?.Invoke(currentCamera));
+    }
+
+    private void ChangeExternalMotionSenderAddress(string address, int port)
+    {
+        CurrentSettings.ExternalMotionSenderAddress = address;
+        CurrentSettings.ExternalMotionSenderPort = port;
+        externalMotionSender.ChangeOSCAddress(address, port);
+    }
+
+    private void WaitOneFrameAction(Action action)
+    {
+        StartCoroutine(WaitOneFrameCoroutine(action));
+    }
+
+    private IEnumerator WaitOneFrameCoroutine(Action action)
+    {
+        yield return null;
+        action?.Invoke();
+    }
+
+    #endregion
+
     #region Setting
 
     [Serializable]
@@ -2378,6 +2443,14 @@ public class ControlWPFWindow : MonoBehaviour
         [OptionalField]
         public bool EyeTracking_ViveProEyeUseEyelidMovements;
 
+        //ExternalMotionSender
+        [OptionalField]
+        public bool ExternalMotionSenderEnable;
+        [OptionalField]
+        public string ExternalMotionSenderAddress;
+        [OptionalField]
+        public int ExternalMotionSenderPort;
+
         [OptionalField]
         public bool EnableSkeletal;
 
@@ -2434,9 +2507,13 @@ public class ControlWPFWindow : MonoBehaviour
             EyeTracking_TobiiScaleVertical = 0.2f;
             EyeTracking_ViveProEyeScaleHorizontal = 2.0f;
             EyeTracking_ViveProEyeScaleVertical = 1.5f;
-            EyeTracking_ViveProEyeUseEyelidMovements = true;
+            EyeTracking_ViveProEyeUseEyelidMovements = false;
 
             EnableSkeletal = true;
+
+            ExternalMotionSenderEnable = false;
+            ExternalMotionSenderAddress = "127.0.0.1";
+            ExternalMotionSenderPort = 39539;
         }
     }
 
@@ -2623,6 +2700,9 @@ public class ControlWPFWindow : MonoBehaviour
                 Screen.SetResolution(CurrentSettings.ScreenWidth, CurrentSettings.ScreenHeight, false, CurrentSettings.ScreenRefreshRate);
             }
 
+            SetExternalMotionSenderEnable(CurrentSettings.ExternalMotionSenderEnable);
+            ChangeExternalMotionSenderAddress(CurrentSettings.ExternalMotionSenderAddress, CurrentSettings.ExternalMotionSenderPort);
+
             SetEyeTracking_TobiiOffsetsAction?.Invoke(new PipeCommands.SetEyeTracking_TobiiOffsets
             {
                 OffsetHorizontal = CurrentSettings.EyeTracking_TobiiOffsetHorizontal,
@@ -2637,6 +2717,11 @@ public class ControlWPFWindow : MonoBehaviour
                 OffsetVertical = CurrentSettings.EyeTracking_ViveProEyeOffsetVertical,
                 ScaleHorizontal = CurrentSettings.EyeTracking_ViveProEyeScaleHorizontal,
                 ScaleVertical = CurrentSettings.EyeTracking_ViveProEyeScaleVertical
+            });
+
+            SetEyeTracking_ViveProEyeUseEyelidMovementsAction?.Invoke(new PipeCommands.SetEyeTracking_ViveProEyeUseEyelidMovements
+            {
+                Use = CurrentSettings.EyeTracking_ViveProEyeUseEyelidMovements
             });
 
             AdditionalSettingAction?.Invoke(null);
@@ -2737,11 +2822,5 @@ public class ControlWPFWindow : MonoBehaviour
         {
             isWindowDragging = false;
         }
-    }
-
-    //---ExternalSender
-    public GameObject GetCurrentModel()
-    {
-        return CurrentModel;
     }
 }

@@ -203,6 +203,10 @@ namespace VirtualMotionCaptureControlPanel
         {
             var language = LanguageComboBox.SelectedItem as string;
             if (string.IsNullOrWhiteSpace(language)) language = "Japanese";
+            if (language.Contains(" ("))
+            {
+                language = language.Split(' ').First();
+            }
             LanguageSelector.ChangeLanguage(language);
         }
 
@@ -236,6 +240,25 @@ namespace VirtualMotionCaptureControlPanel
                     WebCamMirrorCheckBox.IsChecked = config.Mirroring;
                     WebCamBufferingComboBox.SelectedIndex = config.Buffering;
                     isSetting = false;
+                });
+            });
+            await Globals.Client?.SendCommandWaitAsync(new PipeCommands.GetEnableExternalMotionSender { }, d =>
+            {
+                var data = (PipeCommands.EnableExternalMotionSender)d;
+                Dispatcher.Invoke(() =>
+                {
+                    isSetting = true;
+                    ExternalMotionSenderEnableCheckBox.IsChecked = data.enable;
+                    isSetting = false;
+                });
+            });
+            await Globals.Client?.SendCommandWaitAsync(new PipeCommands.GetExternalMotionSenderAddress { }, d =>
+            {
+                var data = (PipeCommands.ChangeExternalMotionSenderAddress)d;
+                Dispatcher.Invoke(() =>
+                {
+                    ExternalMotionSenderAddressTextBox.Text = data.address;
+                    ExternalMotionSenderPortTextBox.Text = data.port.ToString();
                 });
             });
             await Globals.Client?.SendCommandAsync(new PipeCommands.TrackerMovedRequest { doSend = true });
@@ -434,6 +457,32 @@ namespace VirtualMotionCaptureControlPanel
                     }
                 });
             });
+        }
+
+        private async void ExternalMotionSenderCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            if (isSetting) return;
+            await Globals.Client?.SendCommandAsync(new PipeCommands.EnableExternalMotionSender
+            {
+                enable = ExternalMotionSenderEnableCheckBox.IsChecked.Value
+            });
+        }
+
+        private async void OSCApplyButton_Click(object sender, RoutedEventArgs e)
+        {
+            ExternalMotionSenderPortTextBox.Background = new SolidColorBrush(Colors.White);
+            if (int.TryParse(ExternalMotionSenderPortTextBox.Text, out int port))
+            {
+                await Globals.Client?.SendCommandAsync(new PipeCommands.ChangeExternalMotionSenderAddress
+                {
+                    address = ExternalMotionSenderAddressTextBox.Text,
+                    port = port
+                });
+            }
+            else
+            {
+                ExternalMotionSenderPortTextBox.Background = new SolidColorBrush(Colors.Pink);
+            }
         }
     }
 }
